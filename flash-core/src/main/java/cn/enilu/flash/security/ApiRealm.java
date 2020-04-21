@@ -53,14 +53,21 @@ public class ApiRealm extends AuthorizingRealm {
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
 
         String token = principals.toString();
-
         String username = JwtUtil.getUsername(token);
 
+        SimpleAuthorizationInfo simpleAuthorizationInfo = tokenCache.getAuthz(username);
+        if(simpleAuthorizationInfo != null){
+            return simpleAuthorizationInfo;
+        }
+        
         ShiroUser user = shiroFactroy.shiroUser(userService.findByAccount(username));
-        SimpleAuthorizationInfo simpleAuthorizationInfo = new SimpleAuthorizationInfo();
+        simpleAuthorizationInfo = new SimpleAuthorizationInfo();
         simpleAuthorizationInfo.addRoles(user.getRoleCodes());
         Set<String> permission = user.getPermissions();
         simpleAuthorizationInfo.addStringPermissions(permission);
+
+        tokenCache.putAuthz(username, simpleAuthorizationInfo);
+
         return simpleAuthorizationInfo;
     }
 

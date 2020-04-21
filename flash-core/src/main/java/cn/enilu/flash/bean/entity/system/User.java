@@ -20,7 +20,7 @@ import java.util.Date;
 public class User  extends BaseEntity {
     @Column
     private String avatar;
-    @Column(columnDefinition = "VARCHAR(32) COMMENT '账户'")
+    @Column(unique = true, nullable = false, columnDefinition = "VARCHAR(32) COMMENT '账户'")
     private String account;
     @Column(columnDefinition = "VARCHAR(64) COMMENT '密码'")
     private String password;
