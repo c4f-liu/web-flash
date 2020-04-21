@@ -1,12 +1,15 @@
 package cn.enilu.flash.security;
 
 import cn.enilu.flash.bean.core.ShiroUser;
+import cn.enilu.flash.cache.TokenCache;
 import cn.enilu.flash.service.system.UserService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.authc.ExpiredCredentialsException;
+import org.apache.shiro.authc.IncorrectCredentialsException;
 import org.apache.shiro.authc.SimpleAuthenticationInfo;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
@@ -15,7 +18,11 @@ import org.apache.shiro.subject.PrincipalCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Set;
+
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 
 /**
  * @author ：enilu
@@ -24,13 +31,13 @@ import java.util.Set;
 @Service
 public class ApiRealm extends AuthorizingRealm {
 
-    private     Logger logger = LogManager.getLogger(getClass());
+    private Logger logger = LogManager.getLogger(getClass());
     @Autowired
     private UserService userService;
     @Autowired
     private ShiroFactroy shiroFactroy;
-
-
+    @Autowired
+    private TokenCache tokenCache;
     /**
      * 大坑！，必须重写此方法，不然Shiro会报错
      */
@@ -44,7 +51,10 @@ public class ApiRealm extends AuthorizingRealm {
      */
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
-        String username = JwtUtil.getUsername(principals.toString());
+
+        String token = principals.toString();
+
+        String username = JwtUtil.getUsername(token);
 
         ShiroUser user = shiroFactroy.shiroUser(userService.findByAccount(username));
         SimpleAuthorizationInfo simpleAuthorizationInfo = new SimpleAuthorizationInfo();
@@ -60,22 +70,13 @@ public class ApiRealm extends AuthorizingRealm {
     @Override
     protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken auth) throws AuthenticationException {
         String token = (String) auth.getCredentials();
-        // 解密获得username，用于和数据库进行对比
-        String username = JwtUtil.getUsername(token);
-        if (username == null) {
-            throw new AuthenticationException("token invalid");
-        }
 
-        ShiroUser userBean =  ShiroFactroy.me().shiroUser(userService.findByAccount(username));
-        if (userBean == null) {
-            throw new AuthenticationException("User didn't existed!");
-        }
         try {
-            if (!JwtUtil.verify(token, username, userBean.getPassword())) {
-                throw new AuthenticationException("Username or password error");
-            }
-        }catch (Exception e){
-            throw  new AuthenticationException(e.getMessage());
+            JwtUtil.verify(token);
+        } catch (TokenExpiredException e) {
+            throw new ExpiredCredentialsException(e);
+        } catch(IllegalArgumentException | UnsupportedEncodingException | JWTVerificationException e){
+            throw new IncorrectCredentialsException(e);
         }
 
         return new SimpleAuthenticationInfo(token, token, "my_realm");

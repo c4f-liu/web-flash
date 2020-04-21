@@ -6,6 +6,8 @@ import cn.enilu.flash.security.JwtToken;
 import cn.enilu.flash.security.JwtUtil;
 import cn.enilu.flash.service.system.UserService;
 import cn.enilu.flash.utils.HttpUtil;
+
+import org.apache.shiro.authc.ExpiredCredentialsException;
 import org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,25 +60,27 @@ public class JwtFilter extends BasicHttpAuthenticationFilter {
         if (isLoginAttempt(request, response)) {
             try {
                 return executeLogin(request, response);
-            } catch (Exception e) {
-                logger.info(e.getMessage());
-                //判断如果抛出token失效，则执行刷新token逻辑
-                if(e.getMessage().contains("expired")){
-                    //获取用户信息
-                    String oldToken = HttpUtil.getToken();
-                    Long userId = JwtUtil.getUserId(oldToken);
-                    UserService userService = SpringContextHolder.getBean(UserService.class);
-                    User user = userService.get(userId);
-                    //验证refreshToken是否有效
-                    if(userService.refreshTokenIsValid(oldToken)) {
-                        //生成新token 返回界面
-                        String newToken = userService.loginForToken(user);
-                        JwtToken jwtToken = new JwtToken(newToken);
-                        this.getSubject(request, response).login(jwtToken);
-                        HttpUtil.getResponse().setHeader("token", newToken);
-                        return true;
-                    }
+            } catch (ExpiredCredentialsException e) {   //判断如果抛出token失效，则执行刷新token逻辑
+                
+                String oldToken = HttpUtil.getToken();
+                Long userId = JwtUtil.getUserId(oldToken);
+                UserService userService = SpringContextHolder.getBean(UserService.class);
+                User user = userService.get(userId);
+                
+                //验证refreshToken是否有效
+                if(userService.refreshTokenIsValid(oldToken)) {
+                    //生成新token 返回界面
+                    String newToken = userService.loginForToken(user);
+                    JwtToken jwtToken = new JwtToken(newToken);
+                    this.getSubject(request, response).login(jwtToken);
+                    HttpUtil.getResponse().setHeader("token", newToken);
+                    return true;
                 }
+
+                response401(request, response);
+                return false;
+            } catch (Exception e) {
+                logger.error(e.getMessage());
                 response401(request, response);
                 return false;
             }

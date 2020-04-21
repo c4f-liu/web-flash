@@ -6,7 +6,11 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
@@ -16,27 +20,30 @@ import java.util.UUID;
  * @author ：enilu
  * @date ：Created in 2019/7/30 22:56
  */
+@Component
 public class JwtUtil {
+
+    @Value("${jwt.secret}")
+    private static String secret;
 
     /**
      * 校验token是否正确
      *
-     * @param token    密钥
-     * @param password 用户的密码
+     * @param token  密钥
      * @return 是否正确
+     * @throws UnsupportedEncodingException
+     * @throws IllegalArgumentException
+     * @throws AlgorithmMismatchException     if the algorithm stated in the token's header it's not equal to the one defined in the {@link JWTVerifier}.
+     * @throws SignatureVerificationException if the signature is invalid.
+     * @throws TokenExpiredException          if the token has expired.
+     * @throws InvalidClaimException          if a claim contained a different value than the expected one.
      */
-    public static boolean verify(String token, String username, String password) {
-        JWTVerifier verifier = null;
-        try {
-            Algorithm algorithm = Algorithm.HMAC256(password);
-            verifier = JWT.require(algorithm)
-                    .build();
-        } catch (Exception e) {
-            return false;
-        }
-        DecodedJWT jwt = verifier.verify(token);
-        return true;
+    public static void verify(String token) throws IllegalArgumentException, UnsupportedEncodingException, JWTVerificationException {
 
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+        JWTVerifier verifier = JWT.require(algorithm).build();
+
+        verifier.verify(token);
     }
 
     /**
@@ -76,7 +83,7 @@ public class JwtUtil {
     public static String sign(User user, long expireTime) {
         try {
             Date date = new Date(System.currentTimeMillis() + expireTime);
-            Algorithm algorithm = Algorithm.HMAC256(user.getPassword());
+            Algorithm algorithm = Algorithm.HMAC256(secret);
             // 附带username信息
             return JWT.create()
                     .withClaim("username", user.getAccount())

@@ -40,8 +40,6 @@ public class ShiroFactroy     {
     private MenuRepository menuRepository;
     @Autowired
     private RoleRepository roleRepository;
-    @Autowired
-    private TokenCache tokenCache;
 
     public static ShiroFactroy me() {
         return SpringContextHolder.getBean(ShiroFactroy.class);
@@ -65,11 +63,8 @@ public class ShiroFactroy     {
 
 
     public ShiroUser shiroUser(User user) {
-        ShiroUser shiroUser = tokenCache.getUser(HttpUtil.getToken());
-        if(shiroUser!=null){
-            return shiroUser;
-        }
-        shiroUser = new ShiroUser();
+
+        ShiroUser shiroUser = new ShiroUser();
         shiroUser.setId(Long.valueOf(user.getId()));            // 账号id
         shiroUser.setAccount(user.getAccount());// 账号
         shiroUser.setDeptId(user.getDeptid());    // 部门id
@@ -94,8 +89,6 @@ public class ShiroFactroy     {
                  resUrls.add(resUrl);
                 }
              }
-
-
         }
         shiroUser.setRoleList(roleList);
         shiroUser.setRoleNames(roleNameList);
@@ -103,7 +96,6 @@ public class ShiroFactroy     {
         shiroUser.setPermissions(permissions);
 
         shiroUser.setUrls(resUrls);
-        tokenCache.setUser(HttpUtil.getToken(),shiroUser);
         return shiroUser;
     }
 
